@@ -6,6 +6,7 @@
 
 # Knapsack solver using DFS
 
+from math import ceil
 from sys import argv
 from random import randrange
 
@@ -66,11 +67,16 @@ def ks_brute_force(ks):
     # Return max value.
     return (max_t, max_val)
 
+# Two possible heuristics: an O(1) one and
+# an O(n) one.
+HEURISTIC_FAST = 1
+HEURISTIC_ACCURATE = 2
+
 # Compute the maximum legal knapsack value for instance `ks`
 # using complete search in state space of partial solutions
 # with appropriate heurstics and pruning. If `bb` is `True`,
 # do "branch-and-bound" pruning to speed up search.
-def ks_dfs(ks, bb=False):
+def ks_dfs(ks, bb=None):
     # Maximum packing and value found so far.
     max_t = set()
     max_val = 0
@@ -99,10 +105,29 @@ def ks_dfs(ks, bb=False):
         j = S[i]
         # Implement Branch-and-Bound.
         if bb:
-            # Terrible heuristic: assume can fill rest
-            # of basket with most dense remaining item.
-            j_density = ks.v[j] / ks.w[j]
-            optimum_rest = (ks.c - weight) * j_density
+            if bb == HEURISTIC_FAST:
+                # Fast but bad heuristic: assume can fill
+                # rest of basket with most dense remaining
+                # item.
+                rem_weight = ks.c - weight
+                j_density = ks.v[j] / ks.w[j]
+                optimum_rest = ceil(rem_weight * j_density)
+            elif bb == HEURISTIC_ACCURATE:
+                # Slower but better heuristic: assume can use
+                # solution with fractional fill.
+                optimum_rest = 0
+                acc_weight = weight
+                for k in range(i, n):
+                    m = S[k]
+                    if ks.w[m] + acc_weight > ks.c:
+                        rem_weight = ks.c - acc_weight
+                        m_density = ks.v[m] / ks.w[m]
+                        optimum_rest += ceil(rem_weight * m_density)
+                        break
+                    optimum_rest += ks.v[m]
+                    acc_weight += ks.w[m]
+            else:
+                exit("unknown heuristic")
             if val + optimum_rest <= max_val:
                 return
         # Calculate the potential weight with new item.
@@ -123,23 +148,28 @@ if argv[1] == "test":
     for _ in range(1000):
         ks = Knapsack(100, 10)
         sbf, wbf = ks_brute_force(ks)
-        sdfs, wdfs = ks_dfs(ks)
-        sdfsbb, wdfsbb = ks_dfs(ks, bb=True)
-        if wbf != wdfs or wbf != wdfsbb:
-            print(ks.items())
-            print("", wbf)
-            print("", wdfs)
-            print("", wdfsbb)
+        for name, h in (("none", None),
+                        ("fast", HEURISTIC_FAST),
+                        ("accurate", HEURISTIC_ACCURATE)):
+            sdfs, wdfs = ks_dfs(ks, bb=h)
+            if wbf != wdfs:
+                print(wbf, name, wdfs, ks.items())
 elif argv[1] == "time":
     if argv[2] == "bf":
         ks = Knapsack(1000, 20)
         print(ks.items(), ks_brute_force(ks))
-    elif argv[2] == "dfs":
+    elif argv[2].startswith("dfs"):
+        hs = argv[2].split("-")
+        if len(hs) == 1:
+            bb = None
+        elif hs[1] == "hfast":
+            bb = HEURISTIC_FAST
+        elif hs[1] == "haccurate":
+            bb = HEURISTIC_ACCURATE
+        else:
+            exit("unknown heuristic")
         ks = Knapsack(1000, 20)
-        print(ks.items(), ks_dfs(ks))
-    elif argv[2] == "dfsbb":
-        ks = Knapsack(1000, 20)
-        print(ks.items(), ks_dfs(ks, bb=True))
+        print(ks.items(), ks_dfs(ks, bb=bb))
     else:
         exit("unknown timer", argv[2])
 else:
