@@ -7,6 +7,7 @@
 # Knapsack solver using DFS
 
 from math import ceil
+import sys
 from sys import argv
 from random import randrange
 
@@ -16,7 +17,9 @@ class Knapsack(object):
     # `c` and `n` are given capacity and number of
     # items. The value and weight of each item is chosen
     # randomly from the range 1..maxv.
-    def __init__(self, c, n, maxv=100):
+    def __init__(self, n, c = None, maxv=100):
+        if c == None:
+            c = ceil(maxv * n / 4.0)
         self.c = c
         self.n = n
         def randattr():
@@ -77,6 +80,13 @@ HEURISTIC_ACCURATE = 2
 # with appropriate heurstics and pruning. If `bb` is `True`,
 # do "branch-and-bound" pruning to speed up search.
 def ks_dfs(ks, bb=None):
+    # XXX By default Python will throw an error after something
+    # like 1000 recursive calls. This makes sure there's enough
+    # stack space to run. Thanks Python.
+    rlimit = sys.getrecursionlimit()
+    if rlimit < 2 * ks.n:
+        sys.setrecursionlimit(2 * ks.n)
+
     # Maximum packing and value found so far.
     max_t = set()
     max_val = 0
@@ -146,7 +156,7 @@ def ks_dfs(ks, bb=None):
 # Do a thing with the code above.
 if argv[1] == "test":
     for _ in range(1000):
-        ks = Knapsack(100, 10)
+        ks = Knapsack(10)
         sbf, wbf = ks_brute_force(ks)
         for name, h in (("none", None),
                         ("fast", HEURISTIC_FAST),
@@ -156,20 +166,23 @@ if argv[1] == "test":
                 print(wbf, name, wdfs, ks.items())
 elif argv[1] == "time":
     if argv[2] == "bf":
-        ks = Knapsack(1000, 20)
-        print(ks.items(), ks_brute_force(ks))
+        ks = Knapsack(18)
+        print(ks.n, ks_brute_force(ks))
     elif argv[2].startswith("dfs"):
         hs = argv[2].split("-")
         if len(hs) == 1:
             bb = None
+            n = 20
         elif hs[1] == "hfast":
             bb = HEURISTIC_FAST
+            n = 45
         elif hs[1] == "haccurate":
             bb = HEURISTIC_ACCURATE
+            n = 3000
         else:
             exit("unknown heuristic")
-        ks = Knapsack(1000, 20)
-        print(ks.items(), ks_dfs(ks, bb=bb))
+        ks = Knapsack(n)
+        print(ks.n, ks_dfs(ks, bb=bb))
     else:
         exit("unknown timer", argv[2])
 else:
